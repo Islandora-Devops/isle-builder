@@ -115,10 +115,14 @@ certs/cert.pem certs/privkey.pem &: certs $(CAROOT)/rootCA-key.pem $(CAROOT)/roo
 .PHONY: start
 ## Starts the Docker image registry and creates the builder if it does not exist.
 start: certs/cert.pem certs/privkey.pem certs/rootCA.pem | docker-buildx docker-compose
-  # Start the registry.
-	@docker compose up -d
+  # Start the registry if not already started.
+	@if ! docker inspect $(REGISTRY_NAME) &>/dev/null; then \
+		docker compose up -d registry; \
+	fi
+  # Get auto assigned port for registry or explicit one and start the ui as well.
+	@REGISTRY_PORT=$$(docker inspect --format='{{(index (index .NetworkSettings.Ports "443/tcp") 0).HostPort}}' $(REGISTRY_NAME)) docker compose up -d ui
   # Create the builder if not already created.
-	@if ! docker buildx inspect $(BUILDER_NAME) &>/dev/null; \
+	@if ! docker buildx inspect --bootstrap $(BUILDER_NAME) &>/dev/null; \
 	then \
 		docker buildx create \
 			--append \
@@ -134,16 +138,25 @@ start: certs/cert.pem certs/privkey.pem certs/rootCA.pem | docker-buildx docker-
 use: | start
 	docker buildx use $(BUILDER_NAME)
 
+.PHONY: port
+## Displays the port the Docker image registry is running on.
+port: REGISTRY_PORT=$$(docker inspect --format='{{(index (index .NetworkSettings.Ports "443/tcp") 0).HostPort}}' $(REGISTRY_NAME))
+port: UI_PORT=$$(docker inspect --format='{{(index (index .NetworkSettings.Ports "80/tcp") 0).HostPort}}' $(REGISTRY_NAME)-ui)
+port: PORT_MESSAGE = "  ${RED}%-$(TARGET_MAX_CHAR_NUM)s${RESET} ${GREEN}%s${RESET}\n"
+port:
+	@printf $(PORT_MESSAGE) "Registry" "https://islandora.io:$(REGISTRY_PORT)"
+	@printf $(PORT_MESSAGE) "UI" "http://islandora.io:$(UI_PORT)"
+
 .PHONY: stop
 ## Stops the stops the builder and Docker image registry.
 stop: | docker-buildx docker-compose
   # Stop the builder.
 	@if docker buildx inspect $(BUILDER_NAME) &>/dev/null; \
 	then \
-		docker buildx stop $(BUILD_NAME); \
+		docker buildx stop $(BUILDER_NAME); \
 	fi
   # Stop the registry.
-	@docker compose down
+	@docker compose stop
 
 .PHONY: prune
 ## Frees up disk space by pruning the builder cache.

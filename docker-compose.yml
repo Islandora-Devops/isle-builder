@@ -33,3 +33,18 @@ services:
     networks:
       default:
         aliases: [ "islandora.io" ]
+  ui:
+    image: joxit/docker-registry-ui:${REGISTRY_UI_TAG}
+    container_name: ${REGISTRY_NAME}-ui
+    ports:
+      - "${REGISTRY_UI_PORT}:80"
+    environment:
+      - REGISTRY_TITLE=${REGISTRY_NAME}
+      - PULL_URL=islandora.io:${REGISTRY_PORT}
+      - DELETE_IMAGES=true
+      - SHOW_CATALOG_NB_TAGS=true
+      - SHOW_CONTENT_DIGEST=true
+      - NGINX_PROXY_PASS_URL=https://islandora.io
+      - SINGLE_REGISTRY=true
+    depends_on:
+      - registry
