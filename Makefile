@@ -125,7 +125,6 @@ start: certs/cert.pem certs/privkey.pem certs/rootCA.pem | docker-buildx docker-
 	@if ! docker buildx inspect --bootstrap $(BUILDER_NAME) &>/dev/null; \
 	then \
 		docker buildx create \
-			--append \
 			--bootstrap \
 			--config buildkitd.toml \
 			--driver-opt "image=moby/buildkit:${BUILDKIT_TAG},network=${NETWORK_NAME}" \
